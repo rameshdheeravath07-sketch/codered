@@ -1,0 +1,65 @@
+<div style="overflow-y: auto; max-height: 55vh;">
+    <div id="metals-banner" class="p-2 mb-2 rounded" style="background: #111; border: 1px solid #1a1a1a; font-size: 0.7rem;"></div>
+    <table class="table table-hover" style="font-size: 0.75rem;">
+        <thead>
+            <tr class="text-muted">
+                <th>STOCK / ML</th>
+                <th>LTP / %CHG</th>
+                <th>AI TARGETS</th>
+                <th class="text-end">ACTION</th>
+            </tr>
+        </thead>
+        <tbody id="metals-body">
+            <tr><td colspan="4" class="text-center text-muted p-5">⚡ Initializing Neural Engine...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let metalsLoaded = false;
+
+    async function fetchMetalsStrategy() {
+        try {
+            const r = await fetch('/api/metals_strategy');
+            const data = await r.json();
+            
+            if (!data.stocks || data.stocks.length === 0) {
+                document.getElementById('metals-body').innerHTML = '<tr><td colspan="4" class="text-center p-5 text-warning">API Syncing... Please wait 10 seconds.</td></tr>';
+                return;
+            }
+
+            document.getElementById('metals-banner').innerHTML = `<b>DXY: ${data.dxy_val}</b> | TREND: ${data.dxy_trend}`;
+            
+            document.getElementById('metals-body').innerHTML = data.stocks.map(s => {
+                let id = s.name.replace(/ /g, "-");
+                return `
+                <tr id="row-${id}">
+                    <td><b>${s.name}</b><br><small class="text-muted">${Math.round(s.score)}% Prob</small></td>
+                    <td id="m-ltp-${id}">--</td>
+                    <td><small class="text-success">1W: ${s.pred_1w}</small><br><small class="text-warning">3M: ${s.pred_3m}</small></td>
+                    <td class="text-end"><button class="btn-trade" style="background:${s.algo_color}; color:#000; width:100px;">${s.algo_action}</button></td>
+                </tr>`;
+            }).join('');
+            metalsLoaded = true;
+            fetchMetalsLiveTicks(); // Trigger ticks immediately after strategy loads
+        } catch(e) { console.log("Metals Load Error"); }
+    }
+
+    async function fetchMetalsLiveTicks() {
+        if (!metalsLoaded) return;
+        try {
+            const ticks = await fetch('/api/metals_ticks').then(r => r.json());
+            Object.keys(ticks).forEach(id => {
+                const el = document.getElementById(`m-ltp-${id}`);
+                if (el) {
+                    const t = ticks[id];
+                    el.innerHTML = `${t.ltp}<br><span class="${t.raw_chg >= 0 ? 'BULLISH' : 'BEARISH'}">${t.chg}</span>`;
+                }
+            });
+        } catch(e) {}
+    }
+
+    fetchMetalsStrategy();
+    setInterval(fetchMetalsStrategy, 60000);
+    setInterval(fetchMetalsLiveTicks, 5000);
+</script>

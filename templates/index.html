@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #000; color: #e1e1e1; font-family: 'Inter', sans-serif; font-size: 0.8rem; }
+        .terminal-box { background: #080808; border: 1px solid #1a1a1a; height: 85vh; overflow-y: hidden; padding: 12px; border-radius: 4px; display: flex; flex-direction: column; }
+        .terminal-box-scroll { overflow-y: auto !important; display: block; }
+        .BULLISH { color: #02c076 !important; } .BEARISH { color: #f6465d !important; }
+        .header-stat { background: #080808; border: 1px solid #1a1a1a; padding: 5px 15px; border-radius: 4px; font-weight: bold; }
+        .nav-tabs { border-bottom: 1px solid #1a1a1a; }
+        .nav-tabs .nav-link { color: #848e9c; border: none; }
+        .nav-tabs .nav-link.active { background: #1a1a1a; color: white; border-radius: 4px; }
+        .table { color: #e1e1e1; border-color: #1a1a1a; }
+        .table td { background: transparent !important; border-bottom: 1px solid #111; vertical-align: middle; }
+        .btn-trade { font-size: 0.65rem; padding: 2px 6px; border-radius: 3px; font-weight: bold; border: none; margin-right: 2px; }
+        .btn-exit { background: #f6465d; color: white; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="p-3">
+    <div class="d-flex justify-content-between mb-3 px-2">
+        <div class="header-stat">PNL: <span id="top-pnl">₹0.00</span></div>
+        <div class="w-50 text-center text-muted small mt-1">NSE & GLOBAL MARKETS DASHBOARD</div>
+        <div class="header-stat">BAL: <span id="top-balance">₹0.00</span></div>
+    </div>
+
+    <div class="row g-2">
+        
+        <div class="col-md-3">
+            {% include 'news.html' %}
+        </div>
+        
+        <div class="col-md-6">
+            <div class="terminal-box terminal-box-scroll">
+                
+                <ul class="nav nav-tabs" id="myTab">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#opt-pane">Options</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#swing-pane">Swing</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pos-pane">Positions</button></li>
+                    <li class="nav-item"><button class="nav-link" style="color: #f0b90b; font-weight: bold;" data-bs-toggle="tab" data-bs-target="#metals-pane">Metals & DXY</button></li>
+                </ul>
+                
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="opt-pane">
+                        <table class="table">
+                            <thead><tr class="text-muted"><th>CE LTP</th><th>STRIKE</th><th>PE LTP</th><th>VOLUME</th></tr></thead>
+                            <tbody id="strat-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="tab-pane fade" id="pos-pane">
+                        <table class="table">
+                            <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>PnL</th><th>Action</th></tr></thead>
+                            <tbody id="pos-body"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="metals-pane">
+                        {% include 'metals.html' %}
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            {% include 'market_metric.html' %}
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // --- PORTFOLIO & TRADING SYSTEM ---
+        async function refresh() {
+            try {
+                const data = await fetch('/api/portfolio').then(r => r.json());
+                document.getElementById('top-pnl').innerText = data.pnl;
+                document.getElementById('top-balance').innerText = data.balance;
+                document.getElementById('pos-body').innerHTML = data.positions.map(p => `<tr><td>${p.tradingSymbol}</td><td>${p.netQty}</td><td>${p.buyAvg}</td><td class="${p.unrealizedProfit>=0?'BULLISH':'BEARISH'}">${p.unrealizedProfit}</td><td><button class="btn-trade btn-exit">EXIT</button></td></tr>`).join('');
+            } catch(e) {}
+        }
+
+        async function initStrategy() {
+            try {
+                const data = await fetch('/api/scan_strategy').then(r => r.json());
+                const tbody = document.getElementById('strat-body');
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted p-5">Option Chain Pre-Market Syncing... <br><small>(Data populates at 9:15 AM)</small></td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(s => `<tr><td id="ce-${s.ce_id}" class="BULLISH fw-bold">${s.ce_ltp}</td><td class="text-center bg-dark">${s.strike}</td><td id="pe-${s.pe_id}" class="BEARISH fw-bold">${s.pe_ltp}</td><td class="text-muted">${s.total_vol}</td></tr>`).join('');
+                
+                setInterval(async () => {
+                    const ticks = await fetch('/api/live_ticks').then(r => r.json());
+                    Object.keys(ticks).forEach(id => {
+                        const el = document.getElementById(`ce-${id}`) || document.getElementById(`pe-${id}`);
+                        if(el) el.innerText = ticks[id].ltp;
+                    });
+                }, 1000);
+            } catch(e) {}
+        }
+
+        setInterval(refresh, 10000); 
+        refresh(); 
+        initStrategy();
+    </script>
+</body>
+</html>

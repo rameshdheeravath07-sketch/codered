@@ -1,0 +1,94 @@
+<style>
+    .metric-wrapper { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: space-between; }
+    .metric-card { background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 4px; padding: 6px 10px; animation: fadeIn 0.5s ease-in-out; }
+    .metric-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1a1a1a; padding: 4px 0; }
+    .metric-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .metric-name { font-size: 0.72rem; color: #a0a0a0; font-weight: 500; }
+    
+    /* Added transition so numbers change smoothly */
+    .metric-val { font-size: 0.85rem; color: #e1e1e1; font-weight: bold; transition: color 0.3s ease; }
+</style>
+
+<div class="terminal-box">
+    <h6 class="small fw-bold text-muted mb-2">LIVE METRICS</h6>
+    <div id="metrics-section" class="metric-wrapper">
+        <div class="text-center text-muted p-4">Syncing global data...</div>
+    </div>
+</div>
+
+<script>
+    let isMetricsRendered = false;
+
+    async function fetchMetrics() {
+        try {
+            const data = await fetch('/api/metrics').then(r => r.json());
+            
+            if (!isMetricsRendered) {
+                // 1. FIRST LOAD: Draw the skeleton and assign unique IDs to the numbers
+                document.getElementById('metrics-section').innerHTML = data.map(category => {
+                    const itemsHtml = category.items.map(m => {
+                        // Create a safe, unique ID for every single metric (e.g., 'val-NIFTY-50')
+                        let safeId = m.name.replace(/[^a-zA-Z0-9]/g, '-');
+                        
+                        let chgNum = parseFloat(m.chg);
+                        let colorClass = chgNum >= 0 ? 'BULLISH' : 'BEARISH';
+                        let arrow = chgNum >= 0 ? '▲' : '▼';
+                        let chgDisplay = chgNum !== 0 ? `<span class="${colorClass}" style="font-size: 0.65rem; margin-left: 6px; min-width: 45px; text-align: right;">${arrow} ${Math.abs(chgNum).toFixed(2)}%</span>` : '';
+                        
+                        return `
+                        <div class="metric-item">
+                            <span class="metric-name">${m.name}</span>
+                            <div class="d-flex align-items-center">
+                                <span class="metric-val" id="val-${safeId}">${m.value}</span>
+                                <div id="chg-${safeId}">${chgDisplay}</div>
+                            </div>
+                        </div>`;
+                    }).join('');
+
+                    return `
+                    <div class="metric-card">
+                        <div class="mb-1"><span style="font-size: 0.55rem; font-weight: bold; background: ${category.color}; color: #000; padding: 2px 6px; border-radius: 3px;">${category.category}</span></div>
+                        ${itemsHtml}
+                    </div>`;
+                }).join('');
+                
+                isMetricsRendered = true; // Lock the skeleton
+                
+            } else {
+                // 2. SEAMLESS UPDATE: Do not redraw! Just change the text content.
+                data.forEach(category => {
+                    category.items.forEach(m => {
+                        let safeId = m.name.replace(/[^a-zA-Z0-9]/g, '-');
+                        let valEl = document.getElementById(`val-${safeId}`);
+                        let chgEl = document.getElementById(`chg-${safeId}`);
+
+                        // Only update if the value actually changed
+                        if (valEl && valEl.innerText !== m.value) {
+                            valEl.innerText = m.value;
+                            
+                            // Visual feedback: Flash the number white for 300ms when it ticks
+                            valEl.style.color = "#ffffff";
+                            setTimeout(() => valEl.style.color = "#e1e1e1", 300);
+                        }
+
+                        // Update the percentage change
+                        if (chgEl) {
+                            let chgNum = parseFloat(m.chg);
+                            let colorClass = chgNum >= 0 ? 'BULLISH' : 'BEARISH';
+                            let arrow = chgNum >= 0 ? '▲' : '▼';
+                            if (chgNum !== 0) {
+                                chgEl.innerHTML = `<span class="${colorClass}" style="font-size: 0.65rem; margin-left: 6px; min-width: 45px; text-align: right;">${arrow} ${Math.abs(chgNum).toFixed(2)}%</span>`;
+                            } else {
+                                chgEl.innerHTML = '';
+                            }
+                        }
+                    });
+                });
+            }
+        } catch(e) {}
+    }
+
+    // Initialize and sync every 15 seconds silently
+    fetchMetrics();
+    setInterval(fetchMetrics, 15000); 
+</script>

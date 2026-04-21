@@ -1,0 +1,42 @@
+<style>
+    .news-wrapper { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: space-between; }
+    .news-card { background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 4px; padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; min-height: 0; animation: fadeIn 0.5s ease-in-out; }
+    .news-title { font-size: 0.75rem; font-weight: bold; line-height: 1.3; color: #e1e1e1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 4px; }
+    .news-summary { font-size: 0.65rem; color: #a0a0a0; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .news-footer { font-size: 0.65rem; color: #6c757d; border-top: 1px solid #1a1a1a; padding-top: 4px; margin-top: 4px; }
+</style>
+
+<div class="terminal-box">
+    <h6 class="small fw-bold text-muted mb-2">NEWS TAPE</h6>
+    <div id="news-section" class="news-wrapper"></div>
+</div>
+
+<script>
+    let globalNews = [];
+    async function fetchNewsData() {
+        try { globalNews = await fetch('/api/news').then(r => r.json()); renderNewsUI(); } catch(e) {}
+    }
+
+    function renderNewsUI() {
+        const section = document.getElementById('news-section');
+        if (!globalNews || globalNews.length === 0) { section.innerHTML = '<div class="text-center text-muted p-4">Fetching tape...</div>'; return; }
+        section.innerHTML = globalNews.map(n => {
+            let emoji = n.verdict === 'BULLISH' ? '😊' : n.verdict === 'BEARISH' ? '😞' : '';
+            let catColor = n.category === 'GLOBAL MACRO' ? '#007bff' : n.category === 'INDIA MACRO' ? '#f0b90b' : n.category === 'RESULTS & M&A' ? '#9c27b0' : '#6c757d';
+            return `
+            <div class="news-card">
+                <div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <span style="font-size: 0.55rem; font-weight: bold; background: ${catColor}; color: #000; padding: 2px 6px; border-radius: 3px;">${n.category || 'UPDATE'}</span>
+                        <span style="font-size: 0.85rem;">${emoji}</span>
+                    </div>
+                    <div class="news-title">${n.title}</div>
+                    <div class="news-summary">${n.desc}</div>
+                </div>
+                <div class="news-footer">Primary Impact: <b class="${n.verdict}">${n.symbol}</b></div>
+            </div>`;
+        }).join('');
+    }
+    fetchNewsData(); 
+    setInterval(fetchNewsData, 30000); 
+</script>
