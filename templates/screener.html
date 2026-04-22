@@ -1,0 +1,130 @@
+<style>
+    .scr-panel { background: #080808; border: 1px solid #1a1a1a; border-radius: 4px; margin-bottom: 8px; min-height: 140px; height: 100%;}
+    .scr-header { background: #111; padding: 4px 8px; font-size: 0.65rem; font-weight: bold; color: #a0a0a0; border-bottom: 1px solid #1a1a1a; text-transform: uppercase; }
+    .scr-table { width: 100%; font-size: 0.7rem; }
+    .scr-table td { padding: 3px 8px; border-bottom: 1px solid #111; }
+    
+    /* Sector Breadth Progress Bars */
+    .breadth-bar-container { background: #1a1a1a; height: 16px; width: 100%; border-radius: 3px; position: relative; margin-bottom: 6px; }
+    .breadth-bar-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 5px; font-size: 0.6rem; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; }
+    .color-1 { background: #3b82f6; } .color-2 { background: #ec4899; } .color-3 { background: #8b5cf6; } 
+    .color-4 { background: #eab308; } .color-5 { background: #10b981; } .color-6 { background: #ef4444; }
+</style>
+
+<div style="overflow-y: auto; max-height: 80vh; overflow-x: hidden;">
+    <div id="scr-status" class="text-info small mb-2 p-1 rounded text-center" style="background:#111; border:1px solid #1a1a1a;">
+        ⚡ Scanning Master Dhan Universe...
+    </div>
+
+    <div class="row g-2 mb-1">
+        <div class="col-md-6">
+            <div class="scr-panel p-2">
+                <div class="scr-header mb-2 text-primary">Sector Advances %</div>
+                <div id="scr-sector-bars"><div class="text-muted small text-center p-3">Loading Sectors...</div></div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="scr-panel p-2">
+                <div class="scr-header mb-2 text-primary">Indices Advance</div>
+                <table class="scr-table"><tbody id="scr-indices"></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-2 mt-1">
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header text-success">Top Gainers</div><table class="scr-table"><tbody id="scr-gainers"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header text-danger">Top Losers</div><table class="scr-table"><tbody id="scr-losers"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">Volume Break UP</div><table class="scr-table"><tbody id="scr-vol-up"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">Volume Break DOWN</div><table class="scr-table"><tbody id="scr-vol-down"></tbody></table></div></div>
+    </div>
+
+    <div class="row g-2 mt-1">
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">Daily Vol % Gainers</div><table class="scr-table"><tbody id="scr-vol-gain"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">Bollinger Breakout</div><table class="scr-table"><tbody id="scr-bb"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">5-Day Higher High</div><table class="scr-table"><tbody id="scr-5dh"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">5-Day Lower Low</div><table class="scr-table"><tbody id="scr-5dl"></tbody></table></div></div>
+    </div>
+
+    <div class="row g-2 mt-1">
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header text-info">Buy in Past 5-Min</div><table class="scr-table"><tbody id="scr-5m"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">15-Min Breakout</div><table class="scr-table"><tbody id="scr-15m"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header">1-Hour Breakout</div><table class="scr-table"><tbody id="scr-1h"></tbody></table></div></div>
+        <div class="col-md-3"><div class="scr-panel"><div class="scr-header text-warning">AI Alpha Trades</div><table class="scr-table"><tbody id="scr-ai"></tbody></table></div></div>
+    </div>
+
+    <div class="row g-2 mt-1 mb-2">
+        <div class="col-md-4"><div class="scr-panel"><div class="scr-header">Near 52-Week High</div><table class="scr-table"><tbody id="scr-52h"></tbody></table></div></div>
+        <div class="col-md-4"><div class="scr-panel"><div class="scr-header">Near 52-Week Low</div><table class="scr-table"><tbody id="scr-52l"></tbody></table></div></div>
+        <div class="col-md-4"><div class="scr-panel"><div class="scr-header text-primary">Bullish Fib Pullback</div><table class="scr-table"><tbody id="scr-fib"></tbody></table></div></div>
+    </div>
+</div>
+
+<script>
+    // Helper to build standard stock tables
+    const buildTable = (d) => (!d || !d.length) ? '<tr><td colspan="3" class="text-muted text-center" style="padding-top:10px;">None</td></tr>' : 
+        d.map(s => `<tr><td class="fw-bold">${s.name}</td><td>${s.ltp}</td><td class="${s.raw_chg >= 0 ? 'BULLISH' : 'BEARISH'} text-end">${s.chg}</td></tr>`).join('');
+
+    async function fetchScreener() {
+        try {
+            document.getElementById('scr-status').innerHTML = "🔄 Scanning Master Dhan Universe...";
+            const d = await fetch('/api/screener').then(r => r.json());
+            if(!d.gainers) return;
+
+            // --- 1. RENDER BREADTH (SECTORS & INDICES) ---
+            if (d.breadth && d.breadth.sectors) {
+                const colors = ['color-1', 'color-2', 'color-3', 'color-4', 'color-5', 'color-6'];
+                let sectorHtml = '';
+                d.breadth.sectors.forEach((sec, index) => {
+                    const colorClass = colors[index % colors.length];
+                    sectorHtml += `
+                    <div class="d-flex align-items-center mb-1" style="font-size: 0.65rem;">
+                        <div style="width: 30px; text-align: right; margin-right: 5px;">${Math.round(sec.advance_pct)}</div>
+                        <div class="breadth-bar-container">
+                            <div class="breadth-bar-fill ${colorClass}" style="width: ${sec.advance_pct}%;">
+                                ${sec.name.replace('NIFTY ', '')}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('scr-sector-bars').innerHTML = sectorHtml;
+
+                let indicesHtml = '';
+                if (d.breadth.vix) {
+                    indicesHtml += `<tr><td class="fw-bold text-info">${d.breadth.vix.name}</td><td class="text-end text-info">${d.breadth.vix.ltp.toFixed(2)}</td><td class="text-end ${d.breadth.vix.chg >= 0 ? 'BULLISH' : 'BEARISH'}">${d.breadth.vix.chg.toFixed(2)}%</td></tr>`;
+                }
+                d.breadth.sectors.slice(0, 5).forEach(sec => {
+                    indicesHtml += `<tr><td class="fw-bold">${sec.name}</td><td class="text-end">${sec.ltp.toFixed(2)}</td><td class="text-end ${sec.chg >= 0 ? 'BULLISH' : 'BEARISH'}">${sec.chg.toFixed(2)}%</td></tr>`;
+                });
+                document.getElementById('scr-indices').innerHTML = indicesHtml;
+            }
+
+            // --- 2. RENDER THE 15 STOCK PANELS ---
+            document.getElementById('scr-gainers').innerHTML = buildTable(d.gainers);
+            document.getElementById('scr-losers').innerHTML = buildTable(d.losers);
+            document.getElementById('scr-vol-up').innerHTML = buildTable(d.vol_break_up);
+            document.getElementById('scr-vol-down').innerHTML = buildTable(d.vol_break_down);
+            
+            document.getElementById('scr-vol-gain').innerHTML = buildTable(d.vol_gainers);
+            document.getElementById('scr-bb').innerHTML = buildTable(d.bb_break);
+            document.getElementById('scr-5dh').innerHTML = buildTable(d.high_5d);
+            document.getElementById('scr-5dl').innerHTML = buildTable(d.low_5d);
+            
+            document.getElementById('scr-5m').innerHTML = buildTable(d.buy_5m);
+            document.getElementById('scr-15m').innerHTML = buildTable(d.break_15m);
+            document.getElementById('scr-1h').innerHTML = buildTable(d.break_1h);
+            document.getElementById('scr-ai').innerHTML = buildTable(d.ai_alpha);
+            
+            document.getElementById('scr-52h').innerHTML = buildTable(d.near_52w_high);
+            document.getElementById('scr-52l').innerHTML = buildTable(d.near_52w_low);
+            document.getElementById('scr-fib').innerHTML = buildTable(d.bullish_fib);
+            
+            document.getElementById('scr-status').innerHTML = "✅ Real-Time 17-Panel Scan Complete.";
+        } catch(e) {
+            document.getElementById('scr-status').innerHTML = "⚠️ API Timeout or Rate Limit. Retrying...";
+        }
+    }
+    
+    // Fetch immediately on load, then every 60 seconds
+    fetchScreener();
+    setInterval(fetchScreener, 60000);
+</script>

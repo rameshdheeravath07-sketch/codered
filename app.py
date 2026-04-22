@@ -12,6 +12,7 @@ from bs4 import XMLParsedAsHTMLWarning
 from news import get_news_feed
 from market_metric import get_market_metrics
 from metals_engine import get_metals_strategy, get_metals_ticks
+from screener_engine import build_dynamic_dhan_universe
 
 # Tell Python to ignore that specific BeautifulSoup warning
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
@@ -20,8 +21,8 @@ app = Flask(__name__)
 sia = SentimentIntensityAnalyzer()
 
 # Credentials
-client_id = os.getenv("DHAN_CLIENT_ID")
-access_token = os.getenv("DHAN_ACCESS_TOKEN")
+client_id = "2604202082"
+access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzc2OTU1MzQ3LCJpYXQiOjE3NzY4Njg5NDcsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTEwNTY5OTkwIn0.zzsRiicO523mz9nwMUiR3BQi-_WwMY0unHPkuoTZ7DmKiEcQzXS8T5B-cOMc23f2O9GM8WxAIfv86K9SqOccEA"
 dhan = dhanhq(client_id, access_token)
 
 live_strategy_data = {}
@@ -108,6 +109,10 @@ def api_metals_strategy():
 def api_metals_ticks():
     """Lightning fast LTP ticker for the Metals UI"""
     return jsonify(get_metals_ticks())
+
+@app.route('/api/screener')
+def api_screener():
+    return jsonify(build_dynamic_dhan_universe())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000,debug=True)
